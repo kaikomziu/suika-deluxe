@@ -1,0 +1,466 @@
+// ==========================================================================
+// game.js - Matter.js を使ったゲーム本体ロジック
+// ==========================================================================
+
+const { Engine, World, Bodies, Body, Events, Composite } = Matter;
+
+let stats = loadStats();
+
+// --- キャンバス関連 ---
+const canvas = document.getElementById("game-canvas");
+const ctx = canvas.getContext("2d");
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+canvas.width = GAME_WIDTH * DPR;
+canvas.height = GAME_HEIGHT * DPR;
+ctx.scale(DPR, DPR);
+
+// --- Matter.js セットアップ ---
+const engine = Engine.create();
+engine.gravity.y = 1.1;
+const world = engine.world;
+
+const wallOptions = { isStatic: true, friction: 0.05, restitution: 0.1, render: { visible: false } };
+const floor = Bodies.rectangle(GAME_WIDTH / 2, GAME_HEIGHT + WALL_THICKNESS / 2, GAME_WIDTH, WALL_THICKNESS, wallOptions);
+const leftWall = Bodies.rectangle(-WALL_THICKNESS / 2, GAME_HEIGHT / 2, WALL_THICKNESS, GAME_HEIGHT * 2, wallOptions);
+const rightWall = Bodies.rectangle(GAME_WIDTH + WALL_THICKNESS / 2, GAME_HEIGHT / 2, WALL_THICKNESS, GAME_HEIGHT * 2, wallOptions);
+World.add(world, [floor, leftWall, rightWall]);
+
+// --- ゲーム状態 ---
+let score = 0;
+let isGameOver = false;
+let isPlaying = false;
+let dropCooldownUntil = 0;
+let previewX = GAME_WIDTH / 2;
+let dropQueue = [randomDropTier(), randomDropTier()];
+let bodyDangerTimers = new Map(); // body.id -> ms accumulated above danger line
+let dangerActive = false;
+let lastMergeTime = 0;
+let currentChain = 0;
+let noMergeStreak = 0;
+let gameStartTime = 0;
+let dropsThisGame = 0;
+let nextBodyExtraId = 1;
+let toastQueue = [];
+let quickRetryStreak = 0;
+let removalSet = new Set(); // このフレームで削除予定のbody.id
+
+function randomDropTier() {
+  // tier0〜DROP_MAX_TIERの範囲で重み付きランダム
+  const weights = [30, 25, 20, 15, 10].slice(0, DROP_MAX_TIER + 1);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    if (r < weights[i]) return i;
+    r -= weights[i];
+  }
+  return 0;
+}
+
+function currentSkinEmoji() {
+  const skin = SKINS.find((s) => s.id === stats.currentSkin) || SKINS[0];
+  return skin.emoji;
+}
+
+function spawnFruit(tier, x, y, initialVelocity) {
+  const t = TIERS[tier];
+  const body = Bodies.circle(x, y, t.radius, {
+    restitution: 0.15,
+    friction: 0.2,
+    frictionAir: 0.0008,
+    density: 0.0012,
+    label: "fruit",
+  });
+  body.plugin = { tier };
+  if (initialVelocity) Body.setVelocity(body, initialVelocity);
+  World.add(world, body);
+  return body;
+}
+
+function dropFruit() {
+  if (isGameOver || Date.now() < dropCooldownUntil) return;
+  const tier = dropQueue.shift();
+  dropQueue.push(randomDropTier());
+  const r = TIERS[tier].radius;
+  const x = Math.max(WALL_THICKNESS + r, Math.min(GAME_WIDTH - WALL_THICKNESS - r, previewX));
+  spawnFruit(tier, x, DANGER_LINE_Y - 10);
+  dropCooldownUntil = Date.now() + 380;
+  dropsThisGame++;
+  stats.totalDrops++;
+  noMergeStreak++;
+  stats.maxDropsInOneGame = Math.max(stats.maxDropsInOneGame, dropsThisGame);
+  stats.maxStackNoMerge = Math.max(stats.maxStackNoMerge, noMergeStreak);
+  evaluateAchievements();
+}
+
+// --- 合体処理 ---
+let pendingMerges = [];
+Events.on(engine, "collisionStart", (event) => {
+  for (const pair of event.pairs) {
+    const a = pair.bodyA;
+    const b = pair.bodyB;
+    if (!a.plugin || !b.plugin) continue;
+    if (a.plugin.tier === undefined || b.plugin.tier === undefined) continue;
+    if (a.plugin.tier !== b.plugin.tier) continue;
+    if (a.plugin.tier >= MAX_TIER) continue;
+    if (removalSet.has(a.id) || removalSet.has(b.id)) continue;
+    removalSet.add(a.id);
+    removalSet.add(b.id);
+    pendingMerges.push({ a, b, tier: a.plugin.tier });
+  }
+});
+
+function processMerges() {
+  if (pendingMerges.length === 0) return;
+  const merges = pendingMerges;
+  pendingMerges = [];
+  for (const m of merges) {
+    const midX = (m.a.position.x + m.b.position.x) / 2;
+    const midY = (m.a.position.y + m.b.position.y) / 2;
+    if (m.a._wasDangerLong || m.b._wasDangerLong) {
+      stats.dangerEscapes = (stats.dangerEscapes || 0) + 1;
+    }
+    World.remove(world, m.a);
+    World.remove(world, m.b);
+    bodyDangerTimers.delete(m.a.id);
+    bodyDangerTimers.delete(m.b.id);
+    const newTier = m.tier + 1;
+    const newBody = spawnFruit(newTier, midX, midY);
+    removalSet.delete(m.a.id);
+    removalSet.delete(m.b.id);
+
+    score += TIERS[newTier].score;
+    if (score > stats.highScore) stats.highScore = score;
+    stats.totalMerges++;
+    stats.tierCreatedCount[newTier] = (stats.tierCreatedCount[newTier] || 0) + 1;
+    if (!stats.tierFirstCreated[newTier]) {
+      stats.tierFirstCreated[newTier] = true;
+      showToast(`はじめての「${TIERS[newTier].name}」！`);
+    }
+    noMergeStreak = 0;
+
+    const now = Date.now();
+    if (now - lastMergeTime < 900) {
+      currentChain++;
+    } else {
+      currentChain = 1;
+    }
+    lastMergeTime = now;
+    stats.maxChain = Math.max(stats.maxChain, currentChain);
+  }
+  evaluateAchievements();
+  checkUnlocks();
+}
+
+// --- 危険ラインとゲームオーバー判定 ---
+function updateDangerAndGameOver() {
+  const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
+  let anyDanger = false;
+  const aliveIds = new Set();
+  for (const b of bodies) {
+    aliveIds.add(b.id);
+    const r = b.circleRadius;
+    const speed = Math.hypot(b.velocity.x, b.velocity.y);
+    const top = b.position.y - r;
+    if (top < DANGER_LINE_Y && speed < 0.8) {
+      anyDanger = true;
+      const prev = bodyDangerTimers.get(b.id) || 0;
+      const next = prev + 16.6;
+      bodyDangerTimers.set(b.id, next);
+      if (prev < 1000 && next >= 1000) {
+        // 1秒以上危険状態が続いた実績用フラグは合体時に判定
+        b._wasDangerLong = true;
+      }
+      if (next > GAME_OVER_HOLD_MS) {
+        triggerGameOver();
+        return;
+      }
+    } else {
+      bodyDangerTimers.delete(b.id);
+    }
+  }
+  // 消えたbody(合体で消えた)が長時間危険状態だった場合はdangerEscapes実績
+  for (const id of Array.from(bodyDangerTimers.keys())) {
+    if (!aliveIds.has(id)) bodyDangerTimers.delete(id);
+  }
+  dangerActive = anyDanger;
+}
+
+function triggerGameOver() {
+  if (isGameOver) return;
+  isGameOver = true;
+  isPlaying = false;
+  const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+  stats.longestGameSec = Math.max(stats.longestGameSec, elapsed);
+  stats.highScore = Math.max(stats.highScore, score);
+  stats.gamesPlayed++;
+  stats.lastGameOverTime = Date.now();
+  evaluateAchievements();
+  checkUnlocks();
+  saveStats(stats);
+  renderHud();
+  showGameOverPanel();
+}
+
+function startNewGame() {
+  // 既存のfruitを全部削除
+  const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
+  World.remove(world, bodies);
+  bodyDangerTimers.clear();
+  removalSet.clear();
+  pendingMerges = [];
+
+  // クイックリトライ判定(直前のゲームオーバーから5秒以内の再スタートが連続した回数)
+  const now = Date.now();
+  if (gameStartTime !== 0 && stats.lastGameOverTime && now - stats.lastGameOverTime < 5000) {
+    quickRetryStreak++;
+    stats.quickRetries = Math.max(stats.quickRetries, quickRetryStreak);
+  } else {
+    quickRetryStreak = 0;
+  }
+
+  const hour = new Date().getHours();
+  if (hour >= 0 && hour < 4) stats.playedLateNight = true;
+
+  score = 0;
+  isGameOver = false;
+  isPlaying = true;
+  dropsThisGame = 0;
+  noMergeStreak = 0;
+  currentChain = 0;
+  lastMergeTime = 0;
+  dropQueue = [randomDropTier(), randomDropTier()];
+  gameStartTime = Date.now();
+  hideGameOverPanel();
+  evaluateAchievements();
+  saveStats(stats);
+  renderHud();
+}
+
+// --- 実績評価 ---
+function evaluateAchievements() {
+  let unlockedNew = false;
+  for (const ach of ACHIEVEMENTS) {
+    if (stats.achievementsUnlocked[ach.id]) continue;
+    try {
+      if (ach.check(stats)) {
+        stats.achievementsUnlocked[ach.id] = Date.now();
+        unlockedNew = true;
+        showToast(`実績解除: ${ach.icon} ${ach.name}`);
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  if (unlockedNew) {
+    saveStats(stats);
+    if (typeof renderAchievementsPanel === "function") renderAchievementsPanel();
+  }
+}
+
+// --- スキン/背景の自動解放判定 ---
+function checkUnlocks() {
+  let changed = false;
+  SKINS.forEach((skin) => {
+    if (stats.unlockedSkins.includes(skin.id)) return;
+    if (isUnlocked(skin.unlock)) {
+      stats.unlockedSkins.push(skin.id);
+      showToast(`新しいスキン解放: ${skin.name}`);
+      changed = true;
+    }
+  });
+  BACKGROUNDS.forEach((bg) => {
+    if (stats.unlockedBackgrounds.includes(bg.id)) return;
+    if (isUnlocked(bg.unlock)) {
+      stats.unlockedBackgrounds.push(bg.id);
+      showToast(`新しい背景解放: ${bg.name}`);
+      changed = true;
+    }
+  });
+  if (changed) {
+    saveStats(stats);
+    if (typeof renderSettingsPanel === "function") renderSettingsPanel();
+  }
+}
+
+function isUnlocked(unlock) {
+  switch (unlock.type) {
+    case "always":
+      return true;
+    case "merges":
+      return stats.totalMerges >= unlock.value;
+    case "highScore":
+      return stats.highScore >= unlock.value || score >= unlock.value;
+    case "gamesPlayed":
+      return stats.gamesPlayed >= unlock.value;
+    case "tierReached":
+      return stats.tierFirstCreated[unlock.value] === true;
+    case "allSkins":
+      return SKINS.filter((s) => s.id !== "candy").every((s) => stats.unlockedSkins.includes(s.id));
+    default:
+      return false;
+  }
+}
+
+// --- トースト通知 ---
+function showToast(msg) {
+  toastQueue.push(msg);
+}
+
+function processToastQueue() {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  while (toastQueue.length > 0) {
+    const msg = toastQueue.shift();
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.classList.add("show"), 10);
+    setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => el.remove(), 400);
+    }, 3200);
+  }
+}
+
+// --- 入力処理 ---
+function clientToGameX(clientX) {
+  const rect = canvas.getBoundingClientRect();
+  const ratio = GAME_WIDTH / rect.width;
+  return (clientX - rect.left) * ratio;
+}
+
+canvas.addEventListener("mousemove", (e) => {
+  previewX = clientToGameX(e.clientX);
+});
+canvas.addEventListener("mousedown", () => dropFruit());
+canvas.addEventListener(
+  "touchmove",
+  (e) => {
+    previewX = clientToGameX(e.touches[0].clientX);
+    e.preventDefault();
+  },
+  { passive: false }
+);
+canvas.addEventListener(
+  "touchstart",
+  (e) => {
+    previewX = clientToGameX(e.touches[0].clientX);
+  },
+  { passive: false }
+);
+canvas.addEventListener(
+  "touchend",
+  (e) => {
+    dropFruit();
+    e.preventDefault();
+  },
+  { passive: false }
+);
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    dropFruit();
+    e.preventDefault();
+  }
+});
+
+// --- 描画 ---
+function draw() {
+  ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+  // 危険ライン
+  ctx.save();
+  ctx.strokeStyle = dangerActive ? "rgba(255,80,80,0.85)" : "rgba(255,255,255,0.35)";
+  ctx.setLineDash([8, 8]);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, DANGER_LINE_Y);
+  ctx.lineTo(GAME_WIDTH, DANGER_LINE_Y);
+  ctx.stroke();
+  ctx.restore();
+
+  // フルーツ描画
+  const emoji = currentSkinEmoji();
+  const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
+  for (const b of bodies) {
+    drawFruit(b.position.x, b.position.y, b.circleRadius, b.plugin.tier, b.angle, emoji);
+  }
+
+  // プレビュー(落下予定地点)
+  if (!isGameOver) {
+    const tier = dropQueue[0];
+    const r = TIERS[tier].radius;
+    const x = Math.max(WALL_THICKNESS + r, Math.min(GAME_WIDTH - WALL_THICKNESS - r, previewX));
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.moveTo(x, DANGER_LINE_Y - 10);
+    ctx.lineTo(x, GAME_HEIGHT);
+    ctx.stroke();
+    ctx.restore();
+    drawFruit(x, DANGER_LINE_Y - 10, r, tier, 0, emoji);
+  }
+}
+
+function drawFruit(x, y, r, tier, angle, emoji) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.stroke();
+  ctx.font = `${r * 1.5}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(emoji[tier] || "❓", 0, r * 0.05);
+  ctx.restore();
+}
+
+// --- HUD ---
+function renderHud() {
+  document.getElementById("hud-score").textContent = score.toLocaleString();
+  document.getElementById("hud-best").textContent = stats.highScore.toLocaleString();
+  document.getElementById("hud-next-emoji").textContent = currentSkinEmoji()[dropQueue[1]] || "";
+}
+
+function showGameOverPanel() {
+  const panel = document.getElementById("gameover-panel");
+  panel.classList.add("visible");
+  document.getElementById("final-score").textContent = score.toLocaleString();
+}
+function hideGameOverPanel() {
+  document.getElementById("gameover-panel").classList.remove("visible");
+}
+
+// --- メインループ ---
+let lastTime = performance.now();
+function loop(now) {
+  const delta = Math.min(now - lastTime, 33);
+  lastTime = now;
+  if (isPlaying && !isGameOver) {
+    Engine.update(engine, delta);
+    processMerges();
+    updateDangerAndGameOver();
+  }
+  draw();
+  renderHud();
+  processToastQueue();
+  requestAnimationFrame(loop);
+}
+
+// --- プレイ時間計測(5秒ごと) ---
+setInterval(() => {
+  if (isPlaying && !isGameOver) {
+    stats.totalPlaytimeSec += 5;
+    saveStats(stats);
+    evaluateAchievements();
+  }
+}, 5000);
+
+requestAnimationFrame(loop);

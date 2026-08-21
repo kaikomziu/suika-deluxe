@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>SUIKA DELUXE - すいかゲーム風マージパズル</title>
+<meta name="description" content="すいかゲーム風の物理マージパズル。すいかの上も目指せる全15段階、実績100種類以上、スキン・背景の解放でやりこめる無料ブラウザゲーム。" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍉</text></svg>" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="top-bar">
+      <h1 class="logo">🍉 SUIKA <span>DELUXE</span></h1>
+      <div class="hud">
+        <div class="hud-item">
+          <span class="hud-label">SCORE</span>
+          <span id="hud-score" class="hud-value">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">BEST</span>
+          <span id="hud-best" class="hud-value">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">NEXT</span>
+          <span id="hud-next-emoji" class="hud-value hud-emoji">🍒</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="game-area">
+      <div class="canvas-wrap">
+        <canvas id="game-canvas"></canvas>
+        <div id="gameover-panel" class="gameover-panel">
+          <div class="gameover-box">
+            <h2>GAME OVER</h2>
+            <p>スコア: <span id="final-score">0</span></p>
+            <button id="btn-gameover-restart" class="btn btn-primary">もう一度プレイ</button>
+          </div>
+        </div>
+      </div>
+      <p class="hint">クリック / タップ / スペースキーでフルーツを落とす。同じフルーツ同士を重ねて合体させ、より大きなフルーツを目指そう。すいかの先にも道は続く…</p>
+    </main>
+
+    <nav class="bottom-bar">
+      <button id="btn-restart" class="btn">🔄 リスタート</button>
+      <button id="btn-achievements" class="btn">🏆 実績</button>
+      <button id="btn-settings" class="btn">🎨 スキン/背景</button>
+      <button id="btn-changelog" class="btn">📊 統計/履歴</button>
+    </nav>
+  </div>
+
+  <!-- 実績モーダル -->
+  <div id="modal-achievements" class="modal-overlay">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2>🏆 実績 <span id="achievements-summary" class="modal-summary"></span></h2>
+        <button class="btn btn-close" data-close-modal="modal-achievements">✕</button>
+      </div>
+      <div id="achievements-list" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 設定モーダル(スキン/背景) -->
+  <div id="modal-settings" class="modal-overlay">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2>🎨 カスタマイズ</h2>
+        <button class="btn btn-close" data-close-modal="modal-settings">✕</button>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="tab-skins">フルーツスキン</button>
+        <button class="tab-btn" data-tab="tab-backgrounds">背景</button>
+      </div>
+      <div class="modal-body">
+        <div id="tab-skins" class="tab-content active">
+          <div id="skins-grid" class="option-grid"></div>
+        </div>
+        <div id="tab-backgrounds" class="tab-content">
+          <div id="backgrounds-grid" class="option-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 統計/更新履歴モーダル -->
+  <div id="modal-changelog" class="modal-overlay">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2>📊 統計 & 更新履歴</h2>
+        <button class="btn btn-close" data-close-modal="modal-changelog">✕</button>
+      </div>
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="tab-stats">統計</button>
+        <button class="tab-btn" data-tab="tab-changelog">更新履歴</button>
+      </div>
+      <div class="modal-body">
+        <div id="tab-stats" class="tab-content active">
+          <div id="stats-list" class="stats-list"></div>
+        </div>
+        <div id="tab-changelog" class="tab-content">
+          <div id="changelog-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/version.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>

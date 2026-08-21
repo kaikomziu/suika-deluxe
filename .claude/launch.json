@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "suika-deluxe-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8791", "--directory", "C:/Users/4yoma/Desktop/Claude/suika-deluxe"],
+      "port": 8791
+    }
+  ]
+}
