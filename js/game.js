@@ -43,6 +43,8 @@ let nextBodyExtraId = 1;
 let toastQueue = [];
 let quickRetryStreak = 0;
 let removalSet = new Set(); // このフレームで削除予定のbody.id
+let particles = []; // 合体演出パーティクル
+let scorePopups = []; // 加算スコアのフロート表示
 
 function randomDropTier() {
   // tier0〜DROP_MAX_TIERの範囲で重み付きランダム
@@ -128,9 +130,11 @@ function processMerges() {
     removalSet.delete(m.a.id);
     removalSet.delete(m.b.id);
 
-    score += TIERS[newTier].score;
+    const gained = TIERS[newTier].score;
+    score += gained;
     if (score > stats.highScore) stats.highScore = score;
     stats.totalMerges++;
+    spawnMergeEffects(midX, midY, m.tier, gained);
     stats.tierCreatedCount[newTier] = (stats.tierCreatedCount[newTier] || 0) + 1;
     if (!stats.tierFirstCreated[newTier]) {
       stats.tierFirstCreated[newTier] = true;
@@ -149,6 +153,68 @@ function processMerges() {
   }
   evaluateAchievements();
   checkUnlocks();
+}
+
+// --- 合体エフェクト(パーティクル・スコアポップアップ) ---
+function spawnMergeEffects(x, y, tier, gained) {
+  const color = TIERS[tier].light || TIERS[tier].color || "#ffce54";
+  const count = 12 + tier * 2;
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+    const speed = 1.5 + Math.random() * 3;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 1,
+      life: 0,
+      maxLife: 420 + Math.random() * 200,
+      radius: 2 + Math.random() * 3,
+      color,
+    });
+  }
+  scorePopups.push({ x, y: y - 10, text: `+${gained}`, life: 0, maxLife: 900 });
+}
+
+function updateEffects(delta) {
+  for (const p of particles) {
+    p.life += delta;
+    p.x += p.vx * (delta / 16.6);
+    p.y += p.vy * (delta / 16.6);
+    p.vy += 0.05 * (delta / 16.6);
+  }
+  particles = particles.filter((p) => p.life < p.maxLife);
+
+  for (const s of scorePopups) {
+    s.life += delta;
+    s.y -= 0.4 * (delta / 16.6);
+  }
+  scorePopups = scorePopups.filter((s) => s.life < s.maxLife);
+}
+
+function drawEffects() {
+  for (const p of particles) {
+    const t = p.life / p.maxLife;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius * (1 - t * 0.4), 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+    ctx.restore();
+  }
+  for (const s of scorePopups) {
+    const t = s.life / s.maxLife;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, 1 - t);
+    ctx.font = "bold 22px 'Baloo 2','Zen Maru Gothic',sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffce54";
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(s.text, s.x, s.y);
+    ctx.fillText(s.text, s.x, s.y);
+    ctx.restore();
+  }
 }
 
 // --- 危険ラインとゲームオーバー判定 ---
@@ -386,6 +452,8 @@ function draw() {
     drawFruit(b.position.x, b.position.y, b.circleRadius, b.plugin.tier, b.angle, emoji);
   }
 
+  drawEffects();
+
   // プレビュー(落下予定地点)
   if (!isGameOver) {
     const tier = dropQueue[0];
@@ -405,16 +473,35 @@ function draw() {
 }
 
 function drawFruit(x, y, r, tier, angle, emoji) {
+  const t = TIERS[tier];
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
+
+  // 落下影
+  ctx.beginPath();
+  ctx.arc(0, r * 0.12, r, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fill();
+
+  // 本体(グラデーションで艶っぽく)
+  const grad = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.15, 0, 0, r * 1.05);
+  grad.addColorStop(0, t.light || "#ffffff");
+  grad.addColorStop(1, t.color || "#ffce54");
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  ctx.fillStyle = grad;
   ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(255,255,255,0.5)";
+  ctx.lineWidth = Math.max(2, r * 0.045);
+  ctx.strokeStyle = "rgba(0,0,0,0.22)";
   ctx.stroke();
+
+  // ハイライト(つや)
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.32, -r * 0.38, r * 0.32, r * 0.18, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fill();
+
   ctx.font = `${r * 1.5}px "Segoe UI Emoji","Noto Color Emoji",sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -448,6 +535,7 @@ function loop(now) {
     processMerges();
     updateDangerAndGameOver();
   }
+  updateEffects(delta);
   draw();
   renderHud();
   processToastQueue();

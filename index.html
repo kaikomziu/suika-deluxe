@@ -6,22 +6,26 @@
 <title>SUIKA DELUXE - すいかゲーム風マージパズル</title>
 <meta name="description" content="すいかゲーム風の物理マージパズル。すいかの上も目指せる全15段階、実績100種類以上、スキン・背景の解放でやりこめる無料ブラウザゲーム。" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍉</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <div id="app">
     <header class="top-bar">
-      <h1 class="logo">🍉 SUIKA <span>DELUXE</span></h1>
+      <h1 class="logo"><span class="logo-emoji">🍉</span>SUIKA <span class="logo-accent">DELUXE</span></h1>
+      <p class="tagline">すいかの、その先へ。</p>
       <div class="hud">
-        <div class="hud-item">
+        <div class="hud-item hud-score">
           <span class="hud-label">SCORE</span>
           <span id="hud-score" class="hud-value">0</span>
         </div>
-        <div class="hud-item">
+        <div class="hud-item hud-best">
           <span class="hud-label">BEST</span>
           <span id="hud-best" class="hud-value">0</span>
         </div>
-        <div class="hud-item">
+        <div class="hud-item hud-next">
           <span class="hud-label">NEXT</span>
           <span id="hud-next-emoji" class="hud-value hud-emoji">🍒</span>
         </div>

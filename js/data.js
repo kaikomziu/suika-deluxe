@@ -5,21 +5,21 @@
 // フルーツ段階(すいかの上位も含めて全15段階)
 // radius: 物理半径(px) / score: 合体時に得られる基礎スコア
 const TIERS = [
-  { id: 0, name: "さくらんぼ", radius: 16, score: 1 },
-  { id: 1, name: "いちご", radius: 22, score: 3 },
-  { id: 2, name: "ぶどう", radius: 28, score: 6 },
-  { id: 3, name: "でこぽん", radius: 36, score: 10 },
-  { id: 4, name: "りんご", radius: 44, score: 15 },
-  { id: 5, name: "なし", radius: 52, score: 21 },
-  { id: 6, name: "もも", radius: 60, score: 28 },
-  { id: 7, name: "パイナップル", radius: 70, score: 36 },
-  { id: 8, name: "ココナッツ", radius: 80, score: 45 },
-  { id: 9, name: "メロン", radius: 92, score: 55 },
-  { id: 10, name: "すいか", radius: 105, score: 66 },
-  { id: 11, name: "小さな星", radius: 120, score: 80 },
-  { id: 12, name: "月", radius: 136, score: 100 },
-  { id: 13, name: "太陽", radius: 154, score: 130 },
-  { id: 14, name: "銀河", radius: 175, score: 200 },
+  { id: 0, name: "さくらんぼ", radius: 16, score: 1, color: "#e63950", light: "#ff8fa0" },
+  { id: 1, name: "いちご", radius: 22, score: 3, color: "#ff4f6d", light: "#ffb0c0" },
+  { id: 2, name: "ぶどう", radius: 28, score: 6, color: "#8451d1", light: "#c6a6ff" },
+  { id: 3, name: "でこぽん", radius: 36, score: 10, color: "#ff9a1f", light: "#ffd28a" },
+  { id: 4, name: "りんご", radius: 44, score: 15, color: "#ff4136", light: "#ff9a90" },
+  { id: 5, name: "なし", radius: 52, score: 21, color: "#c3d94a", light: "#ecf8a8" },
+  { id: 6, name: "もも", radius: 60, score: 28, color: "#ff9dba", light: "#ffdce8" },
+  { id: 7, name: "パイナップル", radius: 70, score: 36, color: "#ffd23d", light: "#fff0a3" },
+  { id: 8, name: "ココナッツ", radius: 80, score: 45, color: "#b98a5a", light: "#e6c79a" },
+  { id: 9, name: "メロン", radius: 92, score: 55, color: "#8bd94f", light: "#d4f5a8" },
+  { id: 10, name: "すいか", radius: 105, score: 66, color: "#2fae5c", light: "#8de3a8" },
+  { id: 11, name: "小さな星", radius: 120, score: 80, color: "#6fa8ff", light: "#c6e0ff" },
+  { id: 12, name: "月", radius: 136, score: 100, color: "#d7d7e6", light: "#ffffff" },
+  { id: 13, name: "太陽", radius: 154, score: 130, color: "#ffb238", light: "#ffe79a" },
+  { id: 14, name: "銀河", radius: 175, score: 200, color: "#8a5fe0", light: "#d9c6ff" },
 ];
 const MAX_TIER = TIERS.length - 1; // 14 = 銀河
 // 通常ドロップで出現する最大tier(これより上は合体でのみ出現)
