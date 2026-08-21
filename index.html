@@ -16,6 +16,7 @@
     <header class="top-bar">
       <h1 class="logo"><span class="logo-emoji">🍉</span>SUIKA <span class="logo-accent">DELUXE</span></h1>
       <p class="tagline">すいかの、その先へ。</p>
+      <div class="evo-ring" id="evo-ring"></div>
       <div class="hud">
         <div class="hud-item hud-score">
           <span class="hud-label">SCORE</span>
@@ -50,7 +51,9 @@
       <button id="btn-restart" class="btn">🔄 リスタート</button>
       <button id="btn-achievements" class="btn">🏆 実績</button>
       <button id="btn-settings" class="btn">🎨 スキン/背景</button>
+      <button id="btn-saveslots" class="btn">💾 セーブ/ロード</button>
       <button id="btn-changelog" class="btn">📊 統計/履歴</button>
+      <button id="btn-tas" class="btn" style="display:none;">🤖 TAS: OFF</button>
     </nav>
   </div>
 
@@ -104,6 +107,36 @@
         </div>
         <div id="tab-changelog" class="tab-content">
           <div id="changelog-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- セーブ/ロード(5スロット)モーダル -->
+  <div id="modal-saveslots" class="modal-overlay">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2>💾 セーブ/ロード</h2>
+        <button class="btn btn-close" data-close-modal="modal-saveslots">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-note">自動保存とは別に、好きなタイミングで最大5つまで手動セーブできます。</p>
+        <div id="saveslots-grid" class="saveslots-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 続きから再開ダイアログ(閉じても自動保存された続きから再開できる) -->
+  <div id="modal-resume" class="modal-overlay">
+    <div class="modal-panel modal-panel-sm">
+      <div class="modal-header">
+        <h2>🔄 続きから再開しますか？</h2>
+      </div>
+      <div class="modal-body">
+        <p id="resume-info" class="resume-info"></p>
+        <div class="resume-actions">
+          <button id="btn-resume-continue" class="btn btn-primary">続きから再開</button>
+          <button id="btn-resume-fresh" class="btn">新しく始める</button>
         </div>
       </div>
     </div>

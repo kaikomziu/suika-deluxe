@@ -91,7 +91,18 @@ function dropFruit() {
   noMergeStreak++;
   stats.maxDropsInOneGame = Math.max(stats.maxDropsInOneGame, dropsThisGame);
   stats.maxStackNoMerge = Math.max(stats.maxStackNoMerge, noMergeStreak);
+  markTierCreated(tier);
   evaluateAchievements();
+}
+
+// フルーツが(ドロップ or 合体で)作られた時に呼ぶ共通処理
+function markTierCreated(tier) {
+  stats.tierCreatedCount[tier] = (stats.tierCreatedCount[tier] || 0) + 1;
+  if (!stats.tierFirstCreated[tier]) {
+    stats.tierFirstCreated[tier] = true;
+    showToast(`はじめての「${TIERS[tier].name}」！`);
+    if (typeof renderEvolutionRing === "function") renderEvolutionRing();
+  }
 }
 
 // --- 合体処理 ---
@@ -135,11 +146,7 @@ function processMerges() {
     if (score > stats.highScore) stats.highScore = score;
     stats.totalMerges++;
     spawnMergeEffects(midX, midY, m.tier, gained);
-    stats.tierCreatedCount[newTier] = (stats.tierCreatedCount[newTier] || 0) + 1;
-    if (!stats.tierFirstCreated[newTier]) {
-      stats.tierFirstCreated[newTier] = true;
-      showToast(`はじめての「${TIERS[newTier].name}」！`);
-    }
+    markTierCreated(newTier);
     noMergeStreak = 0;
 
     const now = Date.now();
@@ -260,12 +267,93 @@ function triggerGameOver() {
   stats.highScore = Math.max(stats.highScore, score);
   stats.gamesPlayed++;
   stats.lastGameOverTime = Date.now();
+  clearAutosave();
   evaluateAchievements();
   checkUnlocks();
   saveStats(stats);
   renderHud();
   showGameOverPanel();
 }
+
+// --- セーブ/ロード(スナップショット) ---
+function captureSnapshot() {
+  const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
+  return {
+    score,
+    dropQueue: dropQueue.slice(),
+    dropsThisGame,
+    noMergeStreak,
+    elapsedSec: gameStartTime ? Math.floor((Date.now() - gameStartTime) / 1000) : 0,
+    fruits: bodies.map((b) => ({ tier: b.plugin.tier, x: b.position.x, y: b.position.y, angle: b.angle })),
+    savedAt: Date.now(),
+  };
+}
+
+function restoreSnapshot(snap) {
+  if (!snap) return;
+  const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
+  World.remove(world, bodies);
+  bodyDangerTimers.clear();
+  removalSet.clear();
+  pendingMerges = [];
+  particles = [];
+  scorePopups = [];
+  (snap.fruits || []).forEach((f) => {
+    const b = spawnFruit(f.tier, f.x, f.y);
+    Body.setAngle(b, f.angle || 0);
+  });
+  score = snap.score || 0;
+  dropQueue = snap.dropQueue && snap.dropQueue.length === 2 ? snap.dropQueue.slice() : [randomDropTier(), randomDropTier()];
+  dropsThisGame = snap.dropsThisGame || 0;
+  noMergeStreak = snap.noMergeStreak || 0;
+  currentChain = 0;
+  lastMergeTime = 0;
+  gameStartTime = Date.now() - (snap.elapsedSec || 0) * 1000;
+  isGameOver = false;
+  isPlaying = true;
+  dropCooldownUntil = 0;
+  hideGameOverPanel();
+  renderHud();
+}
+
+// --- 手動セーブ(5スロット)操作 ---
+function manualSaveToSlot(index) {
+  const saves = loadManualSaves();
+  const snap = captureSnapshot();
+  snap.maxTier = snap.fruits.reduce((m, f) => Math.max(m, f.tier), -1);
+  saves[index] = snap;
+  saveManualSaves(saves);
+  return snap;
+}
+function manualLoadFromSlot(index) {
+  const saves = loadManualSaves();
+  const snap = saves[index];
+  if (!snap) return false;
+  restoreSnapshot(snap);
+  return true;
+}
+function manualDeleteSlot(index) {
+  const saves = loadManualSaves();
+  saves[index] = null;
+  saveManualSaves(saves);
+}
+
+// --- オートセーブ(2秒ごと + 離脱時) ---
+setInterval(() => {
+  if (isPlaying && !isGameOver) {
+    saveAutosave(captureSnapshot());
+  }
+}, 2000);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && isPlaying && !isGameOver) {
+    saveAutosave(captureSnapshot());
+  }
+});
+window.addEventListener("beforeunload", () => {
+  if (isPlaying && !isGameOver) {
+    saveAutosave(captureSnapshot());
+  }
+});
 
 function startNewGame() {
   // 既存のfruitを全部削除
@@ -274,6 +362,7 @@ function startNewGame() {
   bodyDangerTimers.clear();
   removalSet.clear();
   pendingMerges = [];
+  clearAutosave();
 
   // クイックリトライ判定(直前のゲームオーバーから5秒以内の再スタートが連続した回数)
   const now = Date.now();
@@ -360,6 +449,10 @@ function isUnlocked(unlock) {
       return stats.gamesPlayed >= unlock.value;
     case "tierReached":
       return stats.tierFirstCreated[unlock.value] === true;
+    case "playtimeSec":
+      return stats.totalPlaytimeSec >= unlock.value;
+    case "achievementCount":
+      return Object.keys(stats.achievementsUnlocked || {}).length >= unlock.value;
     case "allSkins":
       return SKINS.filter((s) => s.id !== "candy").every((s) => stats.unlockedSkins.includes(s.id));
     default:
@@ -509,6 +602,49 @@ function drawFruit(x, y, r, tier, angle, emoji) {
   ctx.restore();
 }
 
+// --- TASモード(管理者パスワードで解放するテストプレイ用の自動操作AI) ---
+const TAS_ADMIN_PASSWORD = "QirEdfGGedaOOpeD";
+let tasModeOn = false;
+let tasRestartScheduled = false;
+
+function tasDecideAndAct() {
+  if (!isPlaying || isGameOver) return;
+  if (Date.now() < dropCooldownUntil) return;
+  const tier = dropQueue[0];
+  const r = TIERS[tier].radius;
+  const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
+  let targetX;
+
+  // 同じtierのフルーツがあれば、その一番高い位置(y最小)を狙って合体を優先する
+  const sameTier = bodies.filter((b) => b.plugin.tier === tier);
+  if (sameTier.length > 0) {
+    sameTier.sort((a, b) => a.position.y - b.position.y);
+    targetX = sameTier[0].position.x;
+  } else {
+    // 無ければ、盤面を列に分けて一番低く積まれている(空いている)列を狙う
+    const cols = 8;
+    const innerLeft = WALL_THICKNESS;
+    const innerWidth = GAME_WIDTH - WALL_THICKNESS * 2;
+    const colWidth = innerWidth / cols;
+    let bestCol = 0;
+    let bestTopY = -Infinity;
+    for (let c = 0; c < cols; c++) {
+      const cx0 = innerLeft + c * colWidth;
+      const cx1 = cx0 + colWidth;
+      const inCol = bodies.filter((b) => b.position.x >= cx0 && b.position.x < cx1);
+      const topY = inCol.length > 0 ? Math.min(...inCol.map((b) => b.position.y - b.circleRadius)) : GAME_HEIGHT;
+      if (topY > bestTopY) {
+        bestTopY = topY;
+        bestCol = c;
+      }
+    }
+    targetX = innerLeft + bestCol * colWidth + colWidth / 2;
+  }
+
+  previewX = Math.max(WALL_THICKNESS + r, Math.min(GAME_WIDTH - WALL_THICKNESS - r, targetX));
+  dropFruit();
+}
+
 // --- HUD ---
 function renderHud() {
   document.getElementById("hud-score").textContent = score.toLocaleString();
@@ -534,6 +670,17 @@ function loop(now) {
     Engine.update(engine, delta);
     processMerges();
     updateDangerAndGameOver();
+  }
+  if (tasModeOn) {
+    if (isPlaying && !isGameOver) {
+      tasDecideAndAct();
+    } else if (isGameOver && !tasRestartScheduled) {
+      tasRestartScheduled = true;
+      setTimeout(() => {
+        tasRestartScheduled = false;
+        if (tasModeOn) startNewGame();
+      }, 700);
+    }
   }
   updateEffects(delta);
   draw();

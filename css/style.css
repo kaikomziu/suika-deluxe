@@ -609,6 +609,123 @@ body::after {
   transform: translateY(0) scale(1);
 }
 
+/* --- しんかの輪 --- */
+.evo-ring {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 8px 14px;
+  margin-bottom: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  scrollbar-width: thin;
+}
+.evo-item {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.evo-emoji {
+  font-size: 1rem;
+  line-height: 1;
+}
+.evo-item.locked .evo-emoji {
+  filter: grayscale(1) brightness(0.7);
+  opacity: 0.6;
+}
+.evo-item.evo-milestone {
+  transform: scale(1.25);
+}
+.evo-arrow {
+  flex: 0 0 auto;
+  color: var(--text-sub);
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+.evo-badge {
+  flex: 0 0 auto;
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: var(--grad-accent);
+  color: #2a1a0a;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  margin: 0 2px;
+}
+
+/* --- セーブ/ロード --- */
+.modal-note {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  margin: 0 0 12px;
+}
+.saveslots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+.save-slot-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.save-slot-card.filled {
+  background: rgba(255, 206, 84, 0.08);
+  border-color: rgba(255, 206, 84, 0.35);
+}
+.slot-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+.slot-info {
+  font-size: 0.75rem;
+  color: var(--text-sub);
+  margin-bottom: 2px;
+}
+.slot-info.empty {
+  font-style: italic;
+  opacity: 0.6;
+}
+.slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.7rem;
+}
+
+/* --- 続きから再開ダイアログ --- */
+.modal-panel-sm {
+  max-width: 420px;
+}
+.resume-info {
+  font-size: 0.85rem;
+  color: var(--text-sub);
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+.resume-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 @media (max-width: 480px) {
   .logo { font-size: 1.5rem; }
   .hud-item { min-width: 58px; padding: 2px 8px; }
