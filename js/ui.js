@@ -78,13 +78,24 @@ function renderSkinGrid() {
   SKINS.forEach((skin) => {
     const unlocked = stats.unlockedSkins.includes(skin.id);
     const selected = stats.currentSkin === skin.id;
+    const isCoinSkin = skin.unlock.type === "coins";
     const card = document.createElement("div");
-    card.className = "option-card" + (unlocked ? "" : " locked") + (selected ? " selected" : "");
+    card.className =
+      "option-card" + (unlocked ? "" : " locked") + (isCoinSkin && !unlocked ? " buyable" : "") + (selected ? " selected" : "");
     const preview = skin.emoji.slice(0, 5).join(" ");
+    let subHtml;
+    if (unlocked) {
+      subHtml = selected ? "選択中" : "選択する";
+    } else if (isCoinSkin) {
+      const afford = (stats.coins || 0) >= skin.unlock.value;
+      subHtml = `<button class="btn btn-sm btn-buy-skin" data-skin="${skin.id}" ${afford ? "" : "disabled"}>🪙${skin.unlock.value}で購入</button>`;
+    } else {
+      subHtml = skin.unlock.label || "";
+    }
     card.innerHTML = `
       <div class="option-preview">${unlocked ? preview : "🔒"}</div>
       <div class="option-name">${skin.name}</div>
-      <div class="option-sub">${unlocked ? (selected ? "選択中" : "選択する") : skin.unlock.label || ""}</div>
+      <div class="option-sub">${subHtml}</div>
     `;
     if (unlocked) {
       card.addEventListener("click", () => {
@@ -95,6 +106,20 @@ function renderSkinGrid() {
       });
     }
     grid.appendChild(card);
+  });
+
+  grid.querySelectorAll(".btn-buy-skin").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.skin;
+      if (purchaseSkin(id)) {
+        showToast("スキンを購入しました！");
+        renderSkinGrid();
+        renderHud();
+      } else {
+        showToast("コインが足りません");
+      }
+    });
   });
 }
 
@@ -245,6 +270,33 @@ function renderSaveSlotsPanel() {
   });
 }
 
+// --- デイリーチャレンジ ---
+function renderDailyChallengePanel() {
+  ensureDailyChallenge();
+  const box = document.getElementById("daily-challenge-box");
+  if (!box) return;
+  const c = stats.dailyChallenge;
+  const pct = c.target > 0 ? Math.min(100, Math.round((Math.min(c.progress, c.target) / c.target) * 100)) : 0;
+  const done = c.progress >= c.target;
+  box.innerHTML = `
+    <div class="daily-label">${c.label}</div>
+    <div class="ach-progress"><div class="ach-progress-bar" style="width:${pct}%"></div></div>
+    <div class="ach-progress-label">${Math.min(c.progress, c.target).toLocaleString()} / ${c.target.toLocaleString()}</div>
+    <div class="daily-reward">報酬: 🪙${c.reward}コイン</div>
+    <button id="btn-claim-daily" class="btn btn-primary" ${c.claimed || !done ? "disabled" : ""}>
+      ${c.claimed ? "受け取り済み" : done ? "受け取る" : "挑戦中…"}
+    </button>
+  `;
+  const claimBtn = document.getElementById("btn-claim-daily");
+  if (claimBtn) {
+    claimBtn.addEventListener("click", () => {
+      if (claimDailyChallenge()) {
+        renderDailyChallengePanel();
+      }
+    });
+  }
+}
+
 // --- 続きから再開ダイアログ ---
 function showResumeDialog(snap) {
   const info = document.getElementById("resume-info");
@@ -303,6 +355,10 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSaveSlotsPanel();
     openModal("modal-saveslots");
   });
+  document.getElementById("btn-daily").addEventListener("click", () => {
+    renderDailyChallengePanel();
+    openModal("modal-daily");
+  });
 
   document.getElementById("btn-tas").addEventListener("click", () => {
     tasModeOn = !tasModeOn;
@@ -341,7 +397,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", (e) => closeModal(btn.getAttribute("data-close-modal")));
   });
   document.querySelectorAll(".modal-overlay").forEach((overlay) => {
-    if (overlay.id === "modal-resume") return; // 再開ダイアログは選択必須(外側クリックで閉じない)
+    if (overlay.id === "modal-resume" || overlay.id === "modal-loginbonus") return; // 選択必須ダイアログは外側クリックで閉じない
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) overlay.classList.remove("visible");
     });
@@ -358,20 +414,37 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 前回の続きがあれば再開ダイアログ、無ければ新規ゲーム開始
-  const pendingAutosave = loadAutosave();
-  if (pendingAutosave && pendingAutosave.dropsThisGame > 0) {
-    showResumeDialog(pendingAutosave);
-    document.getElementById("btn-resume-continue").addEventListener("click", () => {
-      closeModal("modal-resume");
-      restoreSnapshot(pendingAutosave);
-      renderEvolutionRing();
-    });
-    document.getElementById("btn-resume-fresh").addEventListener("click", () => {
-      closeModal("modal-resume");
-      clearAutosave();
+  function proceedToResumeOrStart() {
+    const pendingAutosave = loadAutosave();
+    if (pendingAutosave && pendingAutosave.dropsThisGame > 0) {
+      showResumeDialog(pendingAutosave);
+      document.getElementById("btn-resume-continue").addEventListener("click", () => {
+        closeModal("modal-resume");
+        restoreSnapshot(pendingAutosave);
+        renderEvolutionRing();
+      });
+      document.getElementById("btn-resume-fresh").addEventListener("click", () => {
+        closeModal("modal-resume");
+        clearAutosave();
+        startNewGame();
+      });
+    } else {
       startNewGame();
+    }
+  }
+
+  // まずログインボーナスを判定・表示してから、再開/新規ゲームの流れに入る
+  const bonus = checkLoginBonus();
+  renderHud();
+  if (bonus) {
+    document.getElementById("loginbonus-info").textContent = `${bonus.streak}日連続ログイン！ 🪙+${bonus.reward}コインを獲得しました。`;
+    openModal("modal-loginbonus");
+    document.getElementById("btn-loginbonus-ok").addEventListener("click", () => {
+      closeModal("modal-loginbonus");
+      renderHud();
+      proceedToResumeOrStart();
     });
   } else {
-    startNewGame();
+    proceedToResumeOrStart();
   }
 });

@@ -27,6 +27,12 @@ function defaultStats() {
     achievementsUnlocked: {},
     lastGameOverTime: 0,
     tasUnlocked: false,
+    coins: 0,
+    totalCoinsEarned: 0,
+    lastLoginDate: null,
+    loginStreak: 0,
+    dailyChallenge: null,
+    dailyChallengesCompleted: 0,
   };
 }
 

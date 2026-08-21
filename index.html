@@ -30,6 +30,10 @@
           <span class="hud-label">NEXT</span>
           <span id="hud-next-emoji" class="hud-value hud-emoji">🍒</span>
         </div>
+        <div class="hud-item hud-coins">
+          <span class="hud-label">COIN</span>
+          <span id="hud-coins" class="hud-value">🪙0</span>
+        </div>
       </div>
     </header>
 
@@ -49,6 +53,7 @@
 
     <nav class="bottom-bar">
       <button id="btn-restart" class="btn">🔄 リスタート</button>
+      <button id="btn-daily" class="btn">🎯 デイリー</button>
       <button id="btn-achievements" class="btn">🏆 実績</button>
       <button id="btn-settings" class="btn">🎨 スキン/背景</button>
       <button id="btn-saveslots" class="btn">💾 セーブ/ロード</button>
@@ -126,6 +131,34 @@
     </div>
   </div>
 
+  <!-- デイリーチャレンジモーダル -->
+  <div id="modal-daily" class="modal-overlay">
+    <div class="modal-panel modal-panel-sm">
+      <div class="modal-header">
+        <h2>🎯 デイリーチャレンジ</h2>
+        <button class="btn btn-close" data-close-modal="modal-daily">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="daily-challenge-box" class="daily-challenge-box"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ログインボーナスモーダル -->
+  <div id="modal-loginbonus" class="modal-overlay">
+    <div class="modal-panel modal-panel-sm">
+      <div class="modal-header">
+        <h2>🎁 ログインボーナス</h2>
+      </div>
+      <div class="modal-body">
+        <p id="loginbonus-info" class="resume-info"></p>
+        <div class="resume-actions">
+          <button id="btn-loginbonus-ok" class="btn btn-primary">受け取る</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 続きから再開ダイアログ(閉じても自動保存された続きから再開できる) -->
   <div id="modal-resume" class="modal-overlay">
     <div class="modal-panel modal-panel-sm">
@@ -148,6 +181,7 @@
   <script src="js/data.js"></script>
   <script src="js/achievements.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/challenges.js"></script>
   <script src="js/version.js"></script>
   <script src="js/game.js"></script>
   <script src="js/ui.js"></script>

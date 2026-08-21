@@ -503,6 +503,22 @@ body::after {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.option-card.locked.buyable {
+  opacity: 0.9;
+  cursor: default;
+}
+.btn-buy-skin {
+  width: 100%;
+  background: var(--grad-accent);
+  color: #2a1a0a;
+  border: none;
+}
+.btn-buy-skin:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-sub);
+}
 .option-card.selected {
   border-color: var(--accent);
   background: rgba(255, 206, 84, 0.14);
@@ -708,6 +724,35 @@ body::after {
 .btn-sm {
   padding: 6px 10px;
   font-size: 0.7rem;
+}
+
+/* --- デイリーチャレンジ --- */
+.daily-challenge-box {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+}
+.daily-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+}
+.daily-reward {
+  font-size: 0.8rem;
+  color: var(--accent);
+  font-weight: 700;
+  margin: 8px 0 14px;
+}
+#btn-claim-daily {
+  width: 100%;
+}
+#btn-claim-daily:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hud-coins .hud-value {
+  color: var(--accent);
 }
 
 /* --- 続きから再開ダイアログ --- */

@@ -92,6 +92,7 @@ function dropFruit() {
   stats.maxDropsInOneGame = Math.max(stats.maxDropsInOneGame, dropsThisGame);
   stats.maxStackNoMerge = Math.max(stats.maxStackNoMerge, noMergeStreak);
   markTierCreated(tier);
+  addDailyProgress("drops", 1);
   evaluateAchievements();
 }
 
@@ -157,6 +158,11 @@ function processMerges() {
     }
     lastMergeTime = now;
     stats.maxChain = Math.max(stats.maxChain, currentChain);
+
+    addDailyProgress("merges", 1);
+    addDailyProgress("chain", currentChain);
+    addDailyProgress("score", score);
+    addDailyProgress("tier", 1, { tier: newTier });
   }
   evaluateAchievements();
   checkUnlocks();
@@ -224,6 +230,75 @@ function drawEffects() {
   }
 }
 
+// --- コイン・デイリーチャレンジ・ログインボーナス ---
+function grantCoins(amount) {
+  if (amount <= 0) return;
+  stats.coins = (stats.coins || 0) + amount;
+  stats.totalCoinsEarned = (stats.totalCoinsEarned || 0) + amount;
+}
+
+function ensureDailyChallenge() {
+  const today = todayDateStr();
+  if (!stats.dailyChallenge || stats.dailyChallenge.date !== today) {
+    stats.dailyChallenge = generateDailyChallenge(today);
+    saveStats(stats);
+  }
+}
+
+function addDailyProgress(track, amount, opts) {
+  ensureDailyChallenge();
+  const c = stats.dailyChallenge;
+  if (!c || c.track !== track || c.claimed) return;
+  if (track === "score" || track === "chain") {
+    c.progress = Math.max(c.progress, amount);
+  } else if (track === "tier") {
+    if (opts && opts.tier === c.targetTier) c.progress = 1;
+  } else {
+    c.progress += amount;
+  }
+  if (typeof renderDailyChallengePanel === "function") renderDailyChallengePanel();
+}
+
+function claimDailyChallenge() {
+  ensureDailyChallenge();
+  const c = stats.dailyChallenge;
+  if (!c || c.claimed || c.progress < c.target) return false;
+  c.claimed = true;
+  stats.dailyChallengesCompleted = (stats.dailyChallengesCompleted || 0) + 1;
+  grantCoins(c.reward);
+  showToast(`🎯 デイリーチャレンジ達成！+${c.reward}コイン`);
+  evaluateAchievements();
+  saveStats(stats);
+  renderHud();
+  return true;
+}
+
+// 前回ログイン日の翌日以降に開いていればログインボーナスを付与する
+function checkLoginBonus() {
+  const today = todayDateStr();
+  if (stats.lastLoginDate === today) return null;
+  const yesterday = todayDateStr(-1);
+  stats.loginStreak = stats.lastLoginDate === yesterday ? (stats.loginStreak || 0) + 1 : 1;
+  const reward = LOGIN_BONUS_TABLE[(stats.loginStreak - 1) % LOGIN_BONUS_TABLE.length];
+  stats.lastLoginDate = today;
+  grantCoins(reward);
+  evaluateAchievements();
+  saveStats(stats);
+  return { streak: stats.loginStreak, reward };
+}
+
+// --- スキンのコイン購入 ---
+function purchaseSkin(skinId) {
+  const skin = SKINS.find((s) => s.id === skinId);
+  if (!skin || skin.unlock.type !== "coins") return false;
+  if (stats.unlockedSkins.includes(skinId)) return false;
+  if ((stats.coins || 0) < skin.unlock.value) return false;
+  stats.coins -= skin.unlock.value;
+  stats.unlockedSkins.push(skinId);
+  saveStats(stats);
+  return true;
+}
+
 // --- 危険ラインとゲームオーバー判定 ---
 function updateDangerAndGameOver() {
   const bodies = Composite.allBodies(world).filter((b) => b.label === "fruit");
@@ -268,6 +343,11 @@ function triggerGameOver() {
   stats.gamesPlayed++;
   stats.lastGameOverTime = Date.now();
   clearAutosave();
+  const coinsEarned = Math.floor(score / 50);
+  if (coinsEarned > 0) {
+    grantCoins(coinsEarned);
+    showToast(`🪙 +${coinsEarned}コイン獲得！`);
+  }
   evaluateAchievements();
   checkUnlocks();
   saveStats(stats);
@@ -417,6 +497,7 @@ function checkUnlocks() {
   let changed = false;
   SKINS.forEach((skin) => {
     if (stats.unlockedSkins.includes(skin.id)) return;
+    if (skin.unlock.type === "coins") return; // コイン購入制は自動解放しない
     if (isUnlocked(skin.unlock)) {
       stats.unlockedSkins.push(skin.id);
       showToast(`新しいスキン解放: ${skin.name}`);
@@ -453,6 +534,8 @@ function isUnlocked(unlock) {
       return stats.totalPlaytimeSec >= unlock.value;
     case "achievementCount":
       return Object.keys(stats.achievementsUnlocked || {}).length >= unlock.value;
+    case "coins":
+      return false; // 自動解放せず、購入操作でのみ解放する
     case "allSkins":
       return SKINS.filter((s) => s.id !== "candy").every((s) => stats.unlockedSkins.includes(s.id));
     default:
@@ -650,6 +733,8 @@ function renderHud() {
   document.getElementById("hud-score").textContent = score.toLocaleString();
   document.getElementById("hud-best").textContent = stats.highScore.toLocaleString();
   document.getElementById("hud-next-emoji").textContent = currentSkinEmoji()[dropQueue[1]] || "";
+  const coinsEl = document.getElementById("hud-coins");
+  if (coinsEl) coinsEl.textContent = "🪙" + (stats.coins || 0).toLocaleString();
 }
 
 function showGameOverPanel() {

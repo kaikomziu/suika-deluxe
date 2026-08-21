@@ -104,6 +104,45 @@ function generateAchievements() {
     });
   });
 
+  // --- コイン累計獲得実績 ---
+  [500, 2000, 10000, 50000, 200000].forEach((v) => {
+    add({
+      id: `coins_${v}`,
+      category: "コイン",
+      name: `コイン累計${v.toLocaleString()}枚獲得`,
+      desc: `累計で${v.toLocaleString()}コインを獲得する`,
+      icon: "🪙",
+      check: (s) => (s.totalCoinsEarned || 0) >= v,
+      progress: (s) => [Math.min(s.totalCoinsEarned || 0, v), v],
+    });
+  });
+
+  // --- ログインボーナス連続実績 ---
+  [3, 7, 14, 30, 100].forEach((v) => {
+    add({
+      id: `loginstreak_${v}`,
+      category: "ログインボーナス",
+      name: `${v}日連続ログイン`,
+      desc: `${v}日連続でログインボーナスを受け取る`,
+      icon: "📅",
+      check: (s) => (s.loginStreak || 0) >= v,
+      progress: (s) => [Math.min(s.loginStreak || 0, v), v],
+    });
+  });
+
+  // --- デイリーチャレンジ達成回数実績 ---
+  [1, 7, 30, 100, 365].forEach((v) => {
+    add({
+      id: `dailyclear_${v}`,
+      category: "デイリーチャレンジ",
+      name: `デイリーチャレンジ${v}回達成`,
+      desc: `デイリーチャレンジを累計${v}回クリアする`,
+      icon: "🎯",
+      check: (s) => (s.dailyChallengesCompleted || 0) >= v,
+      progress: (s) => [Math.min(s.dailyChallengesCompleted || 0, v), v],
+    });
+  });
+
   // --- 連鎖(チェイン)実績 ---
   [2, 3, 4, 5, 6].forEach((v) => {
     add({

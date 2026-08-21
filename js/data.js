@@ -36,7 +36,7 @@ const SKINS = [
   {
     id: "animals",
     name: "どうぶつ",
-    unlock: { type: "merges", value: 50, label: "累計マージ数50回で解放" },
+    unlock: { type: "coins", value: 120, label: "120コインで購入" },
     emoji: ["🐭", "🐹", "🐰", "🐱", "🐶", "🐷", "🐵", "🦁", "🐮", "🐸", "🐻", "🐼", "🐨", "🦄", "🐲"],
   },
   {
@@ -60,25 +60,25 @@ const SKINS = [
   {
     id: "cats",
     name: "ねこ",
-    unlock: { type: "highScore", value: 1000, label: "1ゲームで1,000点獲得で解放" },
+    unlock: { type: "coins", value: 150, label: "150コインで購入" },
     emoji: ["🐱", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "🐈", "🐈‍⬛", "🦁", "🐯", "🐆"],
   },
   {
     id: "farm",
     name: "のうじょう",
-    unlock: { type: "merges", value: 50, label: "累計マージ数50回で解放" },
+    unlock: { type: "coins", value: 150, label: "150コインで購入" },
     emoji: ["🐣", "🐤", "🐥", "🐓", "🐔", "🦆", "🦢", "🐇", "🐐", "🐑", "🐖", "🐄", "🐂", "🦃", "🐎"],
   },
   {
     id: "flowers",
     name: "きせつの花",
-    unlock: { type: "achievementCount", value: 30, label: "実績を30個解放すると解放" },
+    unlock: { type: "coins", value: 250, label: "250コインで購入" },
     emoji: ["🌱", "🌿", "🍀", "🌾", "🌻", "🌼", "🌸", "🌺", "🌹", "🥀", "💐", "🏵️", "🌷", "🌵", "🎍"],
   },
   {
     id: "vehicles",
     name: "のりもの",
-    unlock: { type: "gamesPlayed", value: 100, label: "累計プレイ回数100回で解放" },
+    unlock: { type: "coins", value: 350, label: "350コインで購入" },
     emoji: ["🚲", "🛵", "🏍️", "🚗", "🚕", "🚙", "🚓", "🚑", "🚒", "🚐", "🚚", "🚛", "🚜", "🚌", "🚀"],
   },
   {
@@ -126,7 +126,7 @@ const SKINS = [
   {
     id: "weather",
     name: "おてんき",
-    unlock: { type: "merges", value: 300, label: "累計マージ数300回で解放" },
+    unlock: { type: "coins", value: 350, label: "350コインで購入" },
     emoji: ["☀️", "🌤️", "⛅", "🌥️", "☁️", "🌦️", "🌧️", "⛈️", "🌩️", "❄️", "🌪️", "🌈", "🌊", "💧", "☔"],
   },
 ];
