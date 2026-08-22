@@ -42,36 +42,29 @@ body.bg-space { background: radial-gradient(circle at 30% 20%, #3a1c6e 0%, #0a0a
 body.bg-sakura { background: linear-gradient(180deg, #ffe6f0 0%, #ffc2d9 55%, #ffe6f0 100%); }
 body.bg-candy { background: linear-gradient(135deg, #ff9ecb 0%, #ffd36e 35%, #8ee6ff 70%, #c39bff 100%); }
 
-/* ふわふわ浮かぶ背景の光の玉 */
+/* 背景の光の玉(軽量化のためfilter:blurとアニメーションは使わず、グラデーションのみで静止表示) */
 body::before,
 body::after {
   content: "";
   position: fixed;
   border-radius: 50%;
-  filter: blur(40px);
-  opacity: 0.35;
+  opacity: 0.3;
   pointer-events: none;
   z-index: 0;
 }
 body::before {
-  width: 260px;
-  height: 260px;
-  top: -60px;
-  left: -60px;
-  background: radial-gradient(circle, #ffce54, transparent 70%);
-  animation: drift 14s ease-in-out infinite;
-}
-body::after {
   width: 320px;
   height: 320px;
-  bottom: -80px;
-  right: -80px;
-  background: radial-gradient(circle, #ff6ea9, transparent 70%);
-  animation: drift 18s ease-in-out infinite reverse;
+  top: -100px;
+  left: -100px;
+  background: radial-gradient(circle, #ffce54, transparent 68%);
 }
-@keyframes drift {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(30px, 24px) scale(1.12); }
+body::after {
+  width: 380px;
+  height: 380px;
+  bottom: -120px;
+  right: -120px;
+  background: radial-gradient(circle, #ff6ea9, transparent 68%);
 }
 
 #app {
@@ -137,7 +130,6 @@ body::after {
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   padding: 8px 10px;
-  backdrop-filter: blur(10px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 .hud-item {
@@ -257,8 +249,7 @@ body::after {
   justify-content: center;
   gap: 10px;
   padding: 12px;
-  background: rgba(12, 10, 22, 0.6);
-  backdrop-filter: blur(12px);
+  background: rgba(12, 10, 22, 0.82);
   border-top: 1px solid var(--panel-border);
   z-index: 10;
   flex-wrap: wrap;
@@ -637,7 +628,6 @@ body::after {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 999px;
-  backdrop-filter: blur(10px);
   scrollbar-width: thin;
 }
 .evo-item {
@@ -765,7 +755,6 @@ body::after {
   border-radius: 999px;
   padding: 8px 18px;
   margin-bottom: 8px;
-  backdrop-filter: blur(10px);
 }
 .versus-side {
   display: flex;

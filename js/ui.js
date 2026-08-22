@@ -480,6 +480,19 @@ function formatDuration(sec) {
   return `${s}秒`;
 }
 
+// --- 一時停止 ---
+function showPausePanel() {
+  document.getElementById("pause-panel").classList.add("visible");
+}
+function hidePausePanel() {
+  document.getElementById("pause-panel").classList.remove("visible");
+}
+function renderPauseButton() {
+  const btn = document.getElementById("btn-pause");
+  if (!btn) return;
+  btn.textContent = isPaused ? "▶️ 再開する" : "⏸️ 一時停止";
+}
+
 // --- TASモード(管理者パスワードで解放)関連のUI ---
 function renderTasButton() {
   const btn = document.getElementById("btn-tas");
@@ -498,9 +511,12 @@ document.addEventListener("DOMContentLoaded", () => {
   renderStatsPanel();
   renderEvolutionRing();
   renderTasButton();
+  renderPauseButton();
 
   document.getElementById("btn-restart").addEventListener("click", () => startNewGame());
   document.getElementById("btn-gameover-restart").addEventListener("click", () => startNewGame());
+  document.getElementById("btn-pause").addEventListener("click", () => togglePause());
+  document.getElementById("btn-pause-resume").addEventListener("click", () => togglePause());
 
   document.getElementById("btn-achievements").addEventListener("click", () => {
     renderAchievementsPanel();

@@ -29,6 +29,7 @@ World.add(world, [floor, leftWall, rightWall]);
 let score = 0;
 let isGameOver = false;
 let isPlaying = false;
+let isPaused = false;
 let dropCooldownUntil = 0;
 let previewX = GAME_WIDTH / 2;
 let dropQueue = [randomDropTier(), randomDropTier()];
@@ -79,7 +80,7 @@ function spawnFruit(tier, x, y, initialVelocity) {
 }
 
 function dropFruit() {
-  if (isGameOver || Date.now() < dropCooldownUntil) return;
+  if (isGameOver || isPaused || Date.now() < dropCooldownUntil) return;
   const tier = dropQueue.shift();
   dropQueue.push(randomDropTier());
   const r = TIERS[tier].radius;
@@ -169,9 +170,11 @@ function processMerges() {
 }
 
 // --- 合体エフェクト(パーティクル・スコアポップアップ) ---
+const MAX_PARTICLES = 120; // 連鎖・TASモード時などに増えすぎないよう上限を設ける
+
 function spawnMergeEffects(x, y, tier, gained) {
   const color = TIERS[tier].light || TIERS[tier].color || "#ffce54";
-  const count = 12 + tier * 2;
+  const count = Math.min(8 + tier, 20);
   for (let i = 0; i < count; i++) {
     const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
     const speed = 1.5 + Math.random() * 3;
@@ -184,6 +187,9 @@ function spawnMergeEffects(x, y, tier, gained) {
       radius: 2 + Math.random() * 3,
       color,
     });
+  }
+  if (particles.length > MAX_PARTICLES) {
+    particles.splice(0, particles.length - MAX_PARTICLES);
   }
   scorePopups.push({ x, y: y - 10, text: `+${gained}`, life: 0, maxLife: 900 });
 }
@@ -205,29 +211,29 @@ function updateEffects(delta) {
 }
 
 function drawEffects() {
+  // save/restoreをループ毎に呼ぶと重いので、まとめてalphaだけ変更→最後に1回リセットする
   for (const p of particles) {
     const t = p.life / p.maxLife;
-    ctx.save();
     ctx.globalAlpha = Math.max(0, 1 - t);
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.radius * (1 - t * 0.4), 0, Math.PI * 2);
     ctx.fillStyle = p.color;
     ctx.fill();
-    ctx.restore();
   }
-  for (const s of scorePopups) {
-    const t = s.life / s.maxLife;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, 1 - t);
+  if (scorePopups.length > 0) {
     ctx.font = "bold 22px 'Baloo 2','Zen Maru Gothic',sans-serif";
     ctx.textAlign = "center";
-    ctx.fillStyle = "#ffce54";
     ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.fillStyle = "#ffce54";
     ctx.lineWidth = 3;
-    ctx.strokeText(s.text, s.x, s.y);
-    ctx.fillText(s.text, s.x, s.y);
-    ctx.restore();
+    for (const s of scorePopups) {
+      const t = s.life / s.maxLife;
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.strokeText(s.text, s.x, s.y);
+      ctx.fillText(s.text, s.x, s.y);
+    }
   }
+  ctx.globalAlpha = 1;
 }
 
 // --- コイン・デイリーチャレンジ・ログインボーナス ---
@@ -397,8 +403,11 @@ function restoreSnapshot(snap) {
   gameStartTime = Date.now() - (snap.elapsedSec || 0) * 1000;
   isGameOver = false;
   isPlaying = true;
+  isPaused = false;
   dropCooldownUntil = 0;
   hideGameOverPanel();
+  if (typeof hidePausePanel === "function") hidePausePanel();
+  if (typeof renderPauseButton === "function") renderPauseButton();
   renderHud();
 }
 
@@ -468,6 +477,7 @@ function startNewGame() {
   score = 0;
   isGameOver = false;
   isPlaying = true;
+  isPaused = false;
   dropsThisGame = 0;
   noMergeStreak = 0;
   currentChain = 0;
@@ -475,6 +485,8 @@ function startNewGame() {
   dropQueue = [randomDropTier(), randomDropTier()];
   gameStartTime = Date.now();
   hideGameOverPanel();
+  if (typeof hidePausePanel === "function") hidePausePanel();
+  if (typeof renderPauseButton === "function") renderPauseButton();
   evaluateAchievements();
   saveStats(stats);
   renderHud();
@@ -612,8 +624,25 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     dropFruit();
     e.preventDefault();
+  } else if (e.code === "Escape" || e.code === "KeyP") {
+    togglePause();
   }
 });
+
+// --- 一時停止 ---
+function togglePause() {
+  if (!isPlaying || isGameOver) return;
+  if (typeof vsActive !== "undefined" && vsActive) {
+    showToast("対戦中は一時停止できません");
+    return;
+  }
+  isPaused = !isPaused;
+  if (typeof showPausePanel === "function") {
+    if (isPaused) showPausePanel();
+    else hidePausePanel();
+  }
+  if (typeof renderPauseButton === "function") renderPauseButton();
+}
 
 // --- 描画 ---
 function draw() {
@@ -657,8 +686,21 @@ function draw() {
   }
 }
 
-function drawFruit(x, y, r, tier, angle, emoji) {
+// tierごとの艶グラデーションはtranslate/rotate後の相対座標に固定なのでキャッシュして使い回す(毎フレーム生成すると重い)
+const tierGradientCache = {};
+function getTierGradient(tier) {
+  let grad = tierGradientCache[tier];
+  if (grad) return grad;
   const t = TIERS[tier];
+  const r = t.radius;
+  grad = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.15, 0, 0, r * 1.05);
+  grad.addColorStop(0, t.light || "#ffffff");
+  grad.addColorStop(1, t.color || "#ffce54");
+  tierGradientCache[tier] = grad;
+  return grad;
+}
+
+function drawFruit(x, y, r, tier, angle, emoji) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -669,10 +711,8 @@ function drawFruit(x, y, r, tier, angle, emoji) {
   ctx.fillStyle = "rgba(0,0,0,0.18)";
   ctx.fill();
 
-  // 本体(グラデーションで艶っぽく)
-  const grad = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.15, 0, 0, r * 1.05);
-  grad.addColorStop(0, t.light || "#ffffff");
-  grad.addColorStop(1, t.color || "#ffce54");
+  // 本体(グラデーションで艶っぽく、キャッシュ済み)
+  const grad = getTierGradient(tier);
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.fillStyle = grad;
@@ -757,20 +797,22 @@ function hideGameOverPanel() {
 
 // --- メインループ ---
 let lastTime = performance.now();
+let hudFrameCounter = 0;
 function loop(now) {
   const delta = Math.min(now - lastTime, 33);
   lastTime = now;
-  if (isPlaying && !isGameOver) {
+  const running = isPlaying && !isGameOver && !isPaused;
+  if (running) {
     Engine.update(engine, delta);
     processMerges();
     updateDangerAndGameOver();
   }
-  if (typeof vsActive !== "undefined" && vsActive) {
+  if (running && typeof vsActive !== "undefined" && vsActive) {
     vsPushState();
     vsCheckWinConditions();
   }
   if (tasModeOn) {
-    if (isPlaying && !isGameOver) {
+    if (running) {
       tasDecideAndAct();
     } else if (isGameOver && !tasRestartScheduled) {
       tasRestartScheduled = true;
@@ -782,7 +824,9 @@ function loop(now) {
   }
   updateEffects(delta);
   draw();
-  renderHud();
+  // HUDのDOM更新は毎フレームだと重いので間引く(スコア変化時は各所で即時renderHud()済み)
+  hudFrameCounter++;
+  if (hudFrameCounter % 6 === 0) renderHud();
   processToastQueue();
   requestAnimationFrame(loop);
 }
