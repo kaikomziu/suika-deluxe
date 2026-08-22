@@ -192,6 +192,13 @@
             <p class="modal-note">
               友達とコードで対戦します。先に10,000点獲得するか、相手が先にゲームオーバーになれば勝利です。
             </p>
+            <input
+              id="versus-room-name-private"
+              type="text"
+              maxlength="20"
+              placeholder="ルーム名(省略可)"
+              class="versus-name-input"
+            />
             <button id="btn-versus-create-private" class="btn btn-primary" style="width:100%;margin-bottom:12px;">
               プライベートルームを作る
             </button>
@@ -203,6 +210,13 @@
           </div>
           <div id="tab-versus-public" class="tab-content">
             <p class="modal-note">誰でも参加できる公開ルームです。野良の対戦相手を探せます。</p>
+            <input
+              id="versus-room-name-public"
+              type="text"
+              maxlength="20"
+              placeholder="ルーム名(省略可・例: 初心者歓迎)"
+              class="versus-name-input"
+            />
             <button id="btn-versus-create-public" class="btn btn-primary" style="width:100%;margin-bottom:12px;">
               パブリックルームを作る
             </button>
@@ -215,6 +229,7 @@
         </div>
       </div>
       <div id="versus-lobby-waiting" class="modal-body" style="display:none;">
+        <div id="versus-room-name-display" class="versus-room-name-display"></div>
         <p class="modal-note">このコードを相手に伝えてください:</p>
         <div id="versus-room-code-display" class="versus-room-code"></div>
         <p class="modal-note" id="versus-waiting-text">対戦相手を待っています…</p>

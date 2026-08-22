@@ -10,6 +10,7 @@ const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE
 
 // --- 対戦状態 ---
 let vsRoomCode = null;
+let vsRoomName = null;
 let vsRole = null; // 'host' | 'guest'
 let vsChannel = null;
 let vsActive = false; // 実際に対戦中か
@@ -42,12 +43,13 @@ function vsMyStateSnapshot() {
 }
 
 // --- ルーム作成/参加 ---
-async function vsCreateRoom(isPublic) {
+async function vsCreateRoom(isPublic, roomName) {
   if (!sb) return null;
   const code = vsGenerateRoomCode();
+  const name = (roomName || "").trim().slice(0, 20) || null;
   const { error } = await sb
     .from("versus_rooms")
-    .insert({ code, status: "waiting", target_score: vsTargetScore, is_public: !!isPublic });
+    .insert({ code, status: "waiting", target_score: vsTargetScore, is_public: !!isPublic, room_name: name });
   if (error) {
     showToast("ルーム作成に失敗しました");
     console.warn(error);
@@ -55,6 +57,7 @@ async function vsCreateRoom(isPublic) {
   }
   vsRole = "host";
   vsRoomCode = code;
+  vsRoomName = name;
   vsSubscribeRoom(code);
   return code;
 }
@@ -65,7 +68,7 @@ async function vsListPublicRooms() {
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data, error } = await sb
     .from("versus_rooms")
-    .select("code, created_at")
+    .select("code, room_name, created_at")
     .eq("is_public", true)
     .eq("status", "waiting")
     .gte("created_at", since)
@@ -93,6 +96,7 @@ async function vsJoinRoom(rawCode) {
   }
   vsRole = "guest";
   vsRoomCode = code;
+  vsRoomName = data.room_name || null;
   vsTargetScore = data.target_score || 10000;
   vsSubscribeRoom(code); // 先に購読してから状態を書き込む(host/guest 双方が同じイベントで開始できるように)
   const { error: updErr } = await sb
@@ -257,6 +261,7 @@ async function vsCancelRoom() {
 function vsLeaveMatch() {
   vsActive = false;
   vsRoomCode = null;
+  vsRoomName = null;
   vsRole = null;
   vsCountdownStarted = false;
   vsMatchEnding = false;

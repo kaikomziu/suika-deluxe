@@ -854,6 +854,26 @@ body::after {
   text-transform: uppercase;
   text-align: center;
 }
+.versus-name-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-main);
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-family: var(--font-body);
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+.versus-room-name-display {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
 .versus-public-list-header {
   display: flex;
   align-items: center;

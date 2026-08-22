@@ -90,6 +90,10 @@ function showVersusLobbyMenu() {
   document.getElementById("versus-lobby-waiting").style.display = "none";
   const input = document.getElementById("versus-code-input");
   if (input) input.value = "";
+  ["versus-room-name-private", "versus-room-name-public"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
   vsStopPublicListPolling();
   // 開くたびにプライベートタブへ戻す
   const lobbyPanel = document.getElementById("versus-lobby-menu");
@@ -105,12 +109,19 @@ function showVersusLobbyWaiting(code) {
   document.getElementById("versus-lobby-menu").style.display = "none";
   document.getElementById("versus-lobby-waiting").style.display = "";
   document.getElementById("versus-room-code-display").textContent = code;
+  document.getElementById("versus-room-name-display").textContent = vsRoomName || "";
   document.getElementById("versus-waiting-text").textContent = "対戦相手を待っています…";
   vsStopPublicListPolling();
 }
 
 // --- パブリックルーム一覧 ---
 let vsPublicListTimer = null;
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str);
+  return div.innerHTML;
+}
 
 function vsFormatElapsed(createdAt) {
   const sec = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
@@ -130,9 +141,12 @@ async function renderPublicRoomList() {
   rooms.forEach((r) => {
     const row = document.createElement("div");
     row.className = "versus-room-row";
+    const safeName = escapeHtml(r.room_name || "");
+    const safeCode = escapeHtml(r.code);
+    const label = safeName ? `${safeName} <span class="versus-room-row-code">(${safeCode})</span>` : `<span class="versus-room-row-code">${safeCode}</span>`;
     row.innerHTML = `
-      <span><span class="versus-room-row-code">${r.code}</span><span class="versus-room-row-time">${vsFormatElapsed(r.created_at)}</span></span>
-      <button class="btn btn-sm btn-join-public" data-code="${r.code}">参加する</button>
+      <span>${label}<span class="versus-room-row-time">${vsFormatElapsed(r.created_at)}</span></span>
+      <button class="btn btn-sm btn-join-public" data-code="${safeCode}">参加する</button>
     `;
     list.appendChild(row);
   });
@@ -518,11 +532,13 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal("modal-versus-lobby");
   });
   document.getElementById("btn-versus-create-private").addEventListener("click", async () => {
-    const code = await vsCreateRoom(false);
+    const name = document.getElementById("versus-room-name-private").value;
+    const code = await vsCreateRoom(false, name);
     if (code) showVersusLobbyWaiting(code);
   });
   document.getElementById("btn-versus-create-public").addEventListener("click", async () => {
-    const code = await vsCreateRoom(true);
+    const name = document.getElementById("versus-room-name-public").value;
+    const code = await vsCreateRoom(true, name);
     if (code) showVersusLobbyWaiting(code);
   });
   document.getElementById("btn-versus-refresh-public").addEventListener("click", () => {
