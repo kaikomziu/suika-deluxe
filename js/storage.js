@@ -33,6 +33,10 @@ function defaultStats() {
     loginStreak: 0,
     dailyChallenge: null,
     dailyChallengesCompleted: 0,
+    versusPlayed: 0,
+    versusWins: 0,
+    versusWinStreak: 0,
+    versusBestWinStreak: 0,
   };
 }
 

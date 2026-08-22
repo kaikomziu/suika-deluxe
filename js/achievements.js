@@ -143,6 +143,30 @@ function generateAchievements() {
     });
   });
 
+  // --- マルチプレイ(対戦)実績 ---
+  [1, 5, 20, 50].forEach((v) => {
+    add({
+      id: `versus_win_${v}`,
+      category: "マルチプレイ",
+      name: `対戦${v}勝`,
+      desc: `リアルタイム対戦に累計${v}回勝利する`,
+      icon: "🆚",
+      check: (s) => (s.versusWins || 0) >= v,
+      progress: (s) => [Math.min(s.versusWins || 0, v), v],
+    });
+  });
+  [3, 5].forEach((v) => {
+    add({
+      id: `versus_streak_${v}`,
+      category: "マルチプレイ",
+      name: `${v}連勝`,
+      desc: `リアルタイム対戦で${v}連勝する`,
+      icon: "🔥",
+      check: (s) => (s.versusBestWinStreak || 0) >= v,
+      progress: (s) => [Math.min(s.versusBestWinStreak || 0, v), v],
+    });
+  });
+
   // --- 連鎖(チェイン)実績 ---
   [2, 3, 4, 5, 6].forEach((v) => {
     add({

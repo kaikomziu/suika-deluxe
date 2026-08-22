@@ -755,6 +755,159 @@ body::after {
   color: var(--accent);
 }
 
+/* --- マルチプレイ(対戦) --- */
+.versus-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  margin-bottom: 8px;
+  backdrop-filter: blur(10px);
+}
+.versus-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+.versus-label {
+  font-size: 0.62rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+}
+.versus-score {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+.versus-me .versus-score {
+  color: var(--accent);
+}
+.versus-opp .versus-score {
+  color: var(--accent-2);
+}
+.versus-vs {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: var(--text-sub);
+  opacity: 0.7;
+}
+.versus-status {
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+.versus-status.dead {
+  color: #ff6b6b;
+}
+
+.versus-countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 20, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 5;
+}
+.versus-countdown-overlay.visible {
+  opacity: 1;
+}
+.versus-countdown-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 6rem;
+  background: var(--grad-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 24px rgba(255, 158, 90, 0.5);
+  animation: countPulse 0.9s ease;
+}
+@keyframes countPulse {
+  0% { transform: scale(0.4); opacity: 0; }
+  40% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.versus-join-row {
+  display: flex;
+  gap: 8px;
+}
+.versus-code-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  color: var(--text-main);
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.versus-public-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+.versus-public-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.versus-room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.versus-room-row .versus-room-row-code {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.versus-room-row .versus-room-row-time {
+  font-size: 0.68rem;
+  color: var(--text-sub);
+  margin-left: 8px;
+}
+.versus-public-empty {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-sub);
+  padding: 20px 0;
+}
+
+.versus-room-code {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-align: center;
+  color: var(--accent);
+  margin: 10px 0 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-sm);
+}
+
 /* --- 続きから再開ダイアログ --- */
 .modal-panel-sm {
   max-width: 420px;

@@ -15,6 +15,155 @@ function applyBackground() {
   document.body.classList.add(bg.css);
 }
 
+// --- マルチプレイ(対戦)UI ---
+function setVersusPanelVisible(visible) {
+  const panel = document.getElementById("versus-panel");
+  if (panel) panel.style.display = visible ? "flex" : "none";
+}
+
+function renderVersusPanel() {
+  const myEl = document.getElementById("versus-my-score");
+  const oppEl = document.getElementById("versus-opp-score");
+  const statusEl = document.getElementById("versus-opp-status");
+  if (!myEl || !oppEl) return;
+  myEl.textContent = score.toLocaleString();
+  oppEl.textContent = (vsOpponentState.score || 0).toLocaleString();
+  if (statusEl) {
+    if (!vsOpponentState.alive) {
+      statusEl.textContent = "💀 脱落";
+      statusEl.classList.add("dead");
+    } else {
+      statusEl.textContent = "";
+      statusEl.classList.remove("dead");
+    }
+  }
+}
+
+function showVersusCountdown(onDone) {
+  const overlay = document.getElementById("versus-countdown-overlay");
+  const numberEl = document.getElementById("versus-countdown-number");
+  if (!overlay || !numberEl) {
+    onDone && onDone();
+    return;
+  }
+  let n = 3;
+  overlay.classList.add("visible");
+  numberEl.textContent = String(n);
+  const tick = () => {
+    n--;
+    if (n > 0) {
+      numberEl.textContent = String(n);
+      numberEl.style.animation = "none";
+      void numberEl.offsetWidth;
+      numberEl.style.animation = "";
+      setTimeout(tick, 800);
+    } else {
+      numberEl.textContent = "START!";
+      numberEl.style.animation = "none";
+      void numberEl.offsetWidth;
+      numberEl.style.animation = "";
+      setTimeout(() => {
+        overlay.classList.remove("visible");
+        onDone && onDone();
+      }, 700);
+    }
+  };
+  setTimeout(tick, 800);
+}
+
+function showVersusResult(outcome, myScore, oppScore) {
+  const title = document.getElementById("versus-result-title");
+  const scoresEl = document.getElementById("versus-result-scores");
+  if (outcome === "win") {
+    title.textContent = "🏆 WIN!";
+  } else if (outcome === "lose") {
+    title.textContent = "😢 LOSE";
+  } else {
+    title.textContent = "🤝 DRAW";
+  }
+  scoresEl.textContent = `あなた: ${myScore.toLocaleString()}点 / 相手: ${oppScore.toLocaleString()}点`;
+  openModal("modal-versus-result");
+}
+
+function showVersusLobbyMenu() {
+  document.getElementById("versus-lobby-menu").style.display = "";
+  document.getElementById("versus-lobby-waiting").style.display = "none";
+  const input = document.getElementById("versus-code-input");
+  if (input) input.value = "";
+  vsStopPublicListPolling();
+  // 開くたびにプライベートタブへ戻す
+  const lobbyPanel = document.getElementById("versus-lobby-menu");
+  lobbyPanel.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+  lobbyPanel.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+  const privateTabBtn = lobbyPanel.querySelector('[data-tab="tab-versus-private"]');
+  if (privateTabBtn) privateTabBtn.classList.add("active");
+  const privateTabContent = document.getElementById("tab-versus-private");
+  if (privateTabContent) privateTabContent.classList.add("active");
+}
+
+function showVersusLobbyWaiting(code) {
+  document.getElementById("versus-lobby-menu").style.display = "none";
+  document.getElementById("versus-lobby-waiting").style.display = "";
+  document.getElementById("versus-room-code-display").textContent = code;
+  document.getElementById("versus-waiting-text").textContent = "対戦相手を待っています…";
+  vsStopPublicListPolling();
+}
+
+// --- パブリックルーム一覧 ---
+let vsPublicListTimer = null;
+
+function vsFormatElapsed(createdAt) {
+  const sec = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 1000));
+  if (sec < 60) return `${sec}秒前`;
+  return `${Math.floor(sec / 60)}分前`;
+}
+
+async function renderPublicRoomList() {
+  const list = document.getElementById("versus-public-list");
+  if (!list) return;
+  const rooms = await vsListPublicRooms();
+  list.innerHTML = "";
+  if (rooms.length === 0) {
+    list.innerHTML = `<div class="versus-public-empty">現在募集中のルームはありません</div>`;
+    return;
+  }
+  rooms.forEach((r) => {
+    const row = document.createElement("div");
+    row.className = "versus-room-row";
+    row.innerHTML = `
+      <span><span class="versus-room-row-code">${r.code}</span><span class="versus-room-row-time">${vsFormatElapsed(r.created_at)}</span></span>
+      <button class="btn btn-sm btn-join-public" data-code="${r.code}">参加する</button>
+    `;
+    list.appendChild(row);
+  });
+  list.querySelectorAll(".btn-join-public").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const code = btn.dataset.code;
+      btn.disabled = true;
+      const ok = await vsJoinRoom(code);
+      if (ok) {
+        showVersusLobbyWaiting(code);
+        document.getElementById("versus-waiting-text").textContent = "まもなく開始します…";
+      } else {
+        btn.disabled = false;
+        renderPublicRoomList();
+      }
+    });
+  });
+}
+
+function vsStartPublicListPolling() {
+  vsStopPublicListPolling();
+  renderPublicRoomList();
+  vsPublicListTimer = setInterval(renderPublicRoomList, 4000);
+}
+function vsStopPublicListPolling() {
+  if (vsPublicListTimer) {
+    clearInterval(vsPublicListTimer);
+    vsPublicListTimer = null;
+  }
+}
+
 function renderAchievementsPanel() {
   const container = document.getElementById("achievements-list");
   if (!container) return;
@@ -360,6 +509,51 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal("modal-daily");
   });
 
+  document.getElementById("btn-versus").addEventListener("click", () => {
+    if (!sb) {
+      showToast("マルチプレイ機能を読み込めませんでした");
+      return;
+    }
+    showVersusLobbyMenu();
+    openModal("modal-versus-lobby");
+  });
+  document.getElementById("btn-versus-create-private").addEventListener("click", async () => {
+    const code = await vsCreateRoom(false);
+    if (code) showVersusLobbyWaiting(code);
+  });
+  document.getElementById("btn-versus-create-public").addEventListener("click", async () => {
+    const code = await vsCreateRoom(true);
+    if (code) showVersusLobbyWaiting(code);
+  });
+  document.getElementById("btn-versus-refresh-public").addEventListener("click", () => {
+    renderPublicRoomList();
+  });
+  document.getElementById("btn-versus-join").addEventListener("click", async () => {
+    const input = document.getElementById("versus-code-input");
+    const ok = await vsJoinRoom(input.value);
+    if (ok) {
+      document.getElementById("versus-waiting-text").textContent = "対戦相手を待っています…";
+      showVersusLobbyWaiting(input.value.trim().toUpperCase());
+      document.getElementById("versus-waiting-text").textContent = "まもなく開始します…";
+    }
+  });
+  document.getElementById("btn-versus-cancel").addEventListener("click", () => {
+    vsCancelRoom();
+    closeModal("modal-versus-lobby");
+  });
+  document.getElementById("btn-versus-rematch").addEventListener("click", () => {
+    closeModal("modal-versus-result");
+    vsLeaveMatch();
+    startNewGame();
+    showVersusLobbyMenu();
+    openModal("modal-versus-lobby");
+  });
+  document.getElementById("btn-versus-leave").addEventListener("click", () => {
+    closeModal("modal-versus-result");
+    vsLeaveMatch();
+    startNewGame();
+  });
+
   document.getElementById("btn-tas").addEventListener("click", () => {
     tasModeOn = !tasModeOn;
     renderTasButton();
@@ -394,12 +588,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   document.querySelectorAll("[data-close-modal]").forEach((btn) => {
-    btn.addEventListener("click", (e) => closeModal(btn.getAttribute("data-close-modal")));
+    btn.addEventListener("click", (e) => {
+      const id = btn.getAttribute("data-close-modal");
+      if (id === "modal-versus-lobby") vsStopPublicListPolling();
+      closeModal(id);
+    });
   });
   document.querySelectorAll(".modal-overlay").forEach((overlay) => {
     if (overlay.id === "modal-resume" || overlay.id === "modal-loginbonus") return; // 選択必須ダイアログは外側クリックで閉じない
     overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.classList.remove("visible");
+      if (e.target === overlay) {
+        if (overlay.id === "modal-versus-lobby") vsStopPublicListPolling();
+        overlay.classList.remove("visible");
+      }
     });
   });
 
@@ -410,6 +611,11 @@ document.addEventListener("DOMContentLoaded", () => {
       tabGroup.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById(btn.dataset.tab).classList.add("active");
+      if (btn.dataset.tab === "tab-versus-public") {
+        vsStartPublicListPolling();
+      } else if (btn.dataset.tab === "tab-versus-private") {
+        vsStopPublicListPolling();
+      }
     });
   });
 

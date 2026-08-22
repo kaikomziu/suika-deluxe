@@ -348,11 +348,17 @@ function triggerGameOver() {
     grantCoins(coinsEarned);
     showToast(`🪙 +${coinsEarned}コイン獲得！`);
   }
+  if (typeof vsActive !== "undefined" && vsActive) {
+    vsPushState(true);
+    vsCheckWinConditions();
+  }
   evaluateAchievements();
   checkUnlocks();
   saveStats(stats);
   renderHud();
-  showGameOverPanel();
+  if (!(typeof vsActive !== "undefined" && vsActive)) {
+    showGameOverPanel();
+  }
 }
 
 // --- セーブ/ロード(スナップショット) ---
@@ -418,19 +424,22 @@ function manualDeleteSlot(index) {
   saveManualSaves(saves);
 }
 
-// --- オートセーブ(2秒ごと + 離脱時) ---
+// --- オートセーブ(2秒ごと + 離脱時。対戦中は対象外) ---
+function vsIsActiveNow() {
+  return typeof vsActive !== "undefined" && vsActive;
+}
 setInterval(() => {
-  if (isPlaying && !isGameOver) {
+  if (isPlaying && !isGameOver && !vsIsActiveNow()) {
     saveAutosave(captureSnapshot());
   }
 }, 2000);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden && isPlaying && !isGameOver) {
+  if (document.hidden && isPlaying && !isGameOver && !vsIsActiveNow()) {
     saveAutosave(captureSnapshot());
   }
 });
 window.addEventListener("beforeunload", () => {
-  if (isPlaying && !isGameOver) {
+  if (isPlaying && !isGameOver && !vsIsActiveNow()) {
     saveAutosave(captureSnapshot());
   }
 });
@@ -755,6 +764,10 @@ function loop(now) {
     Engine.update(engine, delta);
     processMerges();
     updateDangerAndGameOver();
+  }
+  if (typeof vsActive !== "undefined" && vsActive) {
+    vsPushState();
+    vsCheckWinConditions();
   }
   if (tasModeOn) {
     if (isPlaying && !isGameOver) {
